@@ -5,6 +5,7 @@ glm.cmp <- function(formula.lambda, formula.nu = ~ 1, formula.p = NULL,
 	mf <- model.frame(formula.lambda, ...)
 	y <- model.response(mf)
 	X <- model.matrix(formula.lambda, mf)
+	offset.lambda <- model.offset(mf)
 	d1 <- ncol(X)
 
 	# Parse formula.nu
@@ -13,6 +14,7 @@ glm.cmp <- function(formula.lambda, formula.nu = ~ 1, formula.p = NULL,
 	}
 	mf <- model.frame(formula.nu, ...)
 	S <- model.matrix(formula.nu, mf)
+	offset.nu <- model.offset(mf)
 	d2 <- ncol(S)
 
 	initial.glm <- glm(formula.lambda, family='poisson', ...)
@@ -26,6 +28,8 @@ glm.cmp <- function(formula.lambda, formula.nu = ~ 1, formula.p = NULL,
 	res$y <- y
 	res$X <- X
 	res$S <- S
+	res$offset.lambda <- offset.lambda
+	res$offset.nu <- offset.nu
 	res$beta.init <- beta.init
 	res$gamma.init <- gamma.init
 
@@ -33,13 +37,15 @@ glm.cmp <- function(formula.lambda, formula.nu = ~ 1, formula.p = NULL,
 	if (!is.null(formula.p)) {
 		mf <- model.frame(formula.p, ...)
 		W <- model.matrix(formula.p, mf)
+		offset.p <- model.offset(mf)
 		d3 <- ncol(W)
 		res$W <- W
 
 		if (is.null(zeta.init)) { zeta.init <- rep(0, d3) }
 
 		fit.out <- fit.zicmp.reg(res$y, res$X, res$S, res$W, beta.init = beta.init,
-			gamma.init = gamma.init, zeta.init = zeta.init)
+			gamma.init = gamma.init, zeta.init = zeta.init, 
+			offset.lambda = offset.lambda, offset.nu = offset.nu, offset.p = offset.p)
 
 		res$zeta.init <- zeta.init
 		res$beta.glm <- coef(initial.glm)
@@ -55,7 +61,8 @@ glm.cmp <- function(formula.lambda, formula.nu = ~ 1, formula.p = NULL,
 		attr(res, "class") <- c("zicmp", attr(res, "class"))
 	} else {
 		fit.out <- fit.cmp.reg(res$y, res$X, res$S, beta.init = beta.init,
-			gamma.init = gamma.init)
+			gamma.init = gamma.init, 
+			offset.lambda = offset.lambda, offset.nu = offset.nu)
 
 		res$beta.glm <- coef(initial.glm)
 		res$beta <- fit.out$theta.hat$beta
@@ -69,8 +76,8 @@ glm.cmp <- function(formula.lambda, formula.nu = ~ 1, formula.p = NULL,
 		attr(res, "class") <- c("cmp", attr(res, "class"))
 	}
 
-	# Add the test for equidispersion
-	res$equitest <- equitest(res)
+	# DO NOT Add the test for equidispersion
+	#res$equitest <- equitest(res)
 
 	return(res)
 }
