@@ -80,8 +80,8 @@ glm.cmp <- function(formula.lambda, formula.nu = ~ 1, formula.p = NULL,
 		attr(res, "class") <- c("cmp", attr(res, "class"))
 	}
 
-	# DO NOT Add the test for equidispersion
-	#res$equitest <- equitest(res)
+	# Add the test for equidispersion
+	res$equitest <- equitest(res)
 
 	return(res)
 }
