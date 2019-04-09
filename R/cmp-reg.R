@@ -116,7 +116,7 @@ coef.cmp <- function(object, ...)
 
 nu.cmp <- function(object, ...)
 {
-	exp(object$S %*% object$gamma)
+	exp(object$S %*% object$gamma + object$offset.nu)
 }
 
 sdev.cmp <- function(object, ...)
@@ -139,9 +139,9 @@ equitest.cmp <- function(object, ...)
 	y <- object$y
 	X <- object$X
 	S <- object$S
-	lambda0 <- exp(X %*% object$beta.glm)
-	lambda <- exp(X %*% object$beta)
-	nu <- exp(S %*% object$gamma)
+	lambda0 <- exp(X %*% object$beta.glm + object$offset.lambda)
+	lambda <- exp(X %*% object$beta + object$offset.lambda)
+	nu <- exp(S %*% object$gamma + object$offset.nu)
 
 	logz <- z_hybrid(lambda, nu, take_log = TRUE)
 	teststat <- -2 * sum(y*log(lambda0) - lgamma(y+1) - lambda0 -
@@ -155,13 +155,13 @@ leverage.cmp <- function(object, ...)
 	y <- object$y
 	x <- object$X
 	betahat <- object$beta
-	nuhat <- exp(object$S %*% object$gamma)
+	nuhat <- exp(object$S %*% object$gamma + object$offset.nu)
 
 	# 1) to code the W matrix  (diagonal matrix with Var(Y_i) )
 	W <- diag(weights(x, betahat, nuhat))
 
 	#    and X matrix (in Appendix)
-	lambda.hat <- exp(x %*% betahat)
+	lambda.hat <- exp(x %*% betahat + object$offset.lambda)
 	E.y <- z_prodj(lambda.hat, nuhat) / z_hybrid(lambda.hat, nuhat)
 	E.logfacty <- z_prodlogj(lambda.hat, nuhat) / z_hybrid(lambda.hat, nuhat)
 	extravec <- (-lgamma(y+1) + E.logfacty)/(y - E.y)
@@ -181,7 +181,7 @@ deviance.cmp <- function(object, ...)
 	y <- object$y
 	x <- object$X
 	betahat <- object$beta
-	nuhat <- exp(object$S %*% object$gamma)
+	nuhat <- exp(object$S %*% object$gamma + object$offset.nu)
 	leverage <- leverage.cmp(object)
 
 	#### Compute optimal log likelihood value for given nu-hat value
@@ -194,7 +194,7 @@ deviance.cmp <- function(object, ...)
 		# take the minimum of this function (which equals the max of logL)
 		logf <- function(par){
 			beta <- par[1:length(betainit)]
-			lambda <- exp(x[i,] %*% beta)
+			lambda <- exp(x[i,] %*% beta + object$offset.lambda)
 			ll <- y[i]*log(lambda) - nuhat[i]*lgamma(y[i]+1) -
 				z_hybrid(lambda, nuhat[i], take_log = TRUE)
 			return(ll)
@@ -207,7 +207,7 @@ deviance.cmp <- function(object, ...)
 	}
 
 	#### Compute exact deviances
-	lambdahat <- exp(x %*% betahat)
+	lambdahat <- exp(x %*% betahat + object$offset.lambda)
 	OptimalLogL.mu <- (y*log(lambdahat)) - (nuhat * lgamma(y+1)) - z_hybrid(lambdahat,nuhat,take_log = TRUE)
 	OptimalLogL.y <- OptimalLogLi
 	d <- -2*(OptimalLogL.mu - OptimalLogL.y)
@@ -238,20 +238,26 @@ residuals.cmp <- function(object, type = c("raw", "quantile"), ...)
 predict.cmp <- function(object, newdata = NULL, ...)
 {
 	if (!is.null(newdata)) {
-		# If any of the original models had an intercept added via model.matrix, they
-		# will have an "(Intercept)" column. Let's add an "(Intercept)" to newdata
-		# in case the user didn't make one.
-		newdata <- as.data.frame(newdata)
-        newdata$'(Intercept)' <- 1
-		X <- as.matrix(newdata[,colnames(object$X)])
-		S <- as.matrix(newdata[,colnames(object$S)])
+		mflambda <- model.frame(object$formula.lambda, newdata)
+		mfnu <- model.frame(object$formula.lambda, newdata)
+
+		X <- model.matrix(formula.lambda, mflambda)
+		S <- model.matrix(formula.nu, mfnu)
+
+		offset.lambda <- model.offset(mflambda)
+		offset.nu <- model.offset(mfnu)
+
+		if (is.null(offset.lambda)) { offset.lambda <- rep(0, nrow(newdata))}
+		if (is.null(offset.nu)) { offset.nu <- rep(0, nrow(newdata))}
 	} else {
 		X <- object$X
 		S <- object$S
+		offset.lambda <- object$offset.lambda
+		offset.nu <- object$offset.nu
 	}
 
-	lambda <- exp(X %*% object$beta)
-	nu <- exp(S %*% object$gamma)
+	lambda <- exp(X %*% object$beta + object$offset.lambda)
+	nu <- exp(S %*% object$gamma + object$offset.nu)
 	out <- constantCMPfitsandresids(lambda, nu)
 	y.hat <- out$fit
 	return(y.hat)
@@ -264,8 +270,8 @@ parametric_bootstrap.cmp <- function(object, reps = 1000, report.period = reps+1
 	S <- object$S
 	poissonest <- object$beta.glm
 	betahat <- object$beta
-	lambdahat <- exp(X %*% betahat)
-	nuhat <- exp(object$S %*% object$gamma)
+	lambdahat <- exp(X %*% betahat + object$offset.lambda)
+	nuhat <- exp(object$S %*% object$gamma + object$offset.nu)
 
 	# Generate 1000 samples, using betahat and nuhat from full dataset
 	Ystar <- matrix(0, nrow = nrow(X), ncol = reps)

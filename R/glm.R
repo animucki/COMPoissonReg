@@ -6,6 +6,7 @@ glm.cmp <- function(formula.lambda, formula.nu = ~ 1, formula.p = NULL,
 	y <- model.response(mf)
 	X <- model.matrix(formula.lambda, mf)
 	offset.lambda <- model.offset(mf)
+	if (is.null(offset.lambda)) { offset.lambda <- rep(0, length(y))}
 	d1 <- ncol(X)
 
 	# Parse formula.nu
@@ -15,6 +16,7 @@ glm.cmp <- function(formula.lambda, formula.nu = ~ 1, formula.p = NULL,
 	mf <- model.frame(formula.nu, ...)
 	S <- model.matrix(formula.nu, mf)
 	offset.nu <- model.offset(mf)
+	if (is.null(offset.nu)) { offset.nu <- rep(0, length(y))}
 	d2 <- ncol(S)
 
 	initial.glm <- glm(formula.lambda, family='poisson', ...)
@@ -38,6 +40,7 @@ glm.cmp <- function(formula.lambda, formula.nu = ~ 1, formula.p = NULL,
 		mf <- model.frame(formula.p, ...)
 		W <- model.matrix(formula.p, mf)
 		offset.p <- model.offset(mf)
+		if (is.null(offset.p)) { offset.p <- rep(0, length(y))}
 		d3 <- ncol(W)
 		res$W <- W
 
@@ -47,6 +50,7 @@ glm.cmp <- function(formula.lambda, formula.nu = ~ 1, formula.p = NULL,
 			gamma.init = gamma.init, zeta.init = zeta.init, 
 			offset.lambda = offset.lambda, offset.nu = offset.nu, offset.p = offset.p)
 
+		res$offset.p <- offset.p
 		res$zeta.init <- zeta.init
 		res$beta.glm <- coef(initial.glm)
 		res$beta <- fit.out$theta.hat$beta
@@ -60,8 +64,8 @@ glm.cmp <- function(formula.lambda, formula.nu = ~ 1, formula.p = NULL,
 
 		attr(res, "class") <- c("zicmp", attr(res, "class"))
 	} else {
-		fit.out <- fit.cmp.reg(res$y, res$X, res$S, beta.init = beta.init,
-			gamma.init = gamma.init, 
+		fit.out <- fit.cmp.reg(res$y, res$X, res$S, 
+			beta.init = beta.init, gamma.init = gamma.init, 
 			offset.lambda = offset.lambda, offset.nu = offset.nu)
 
 		res$beta.glm <- coef(initial.glm)

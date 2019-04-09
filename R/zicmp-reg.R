@@ -132,7 +132,7 @@ coef.zicmp <- function(object, ...)
 
 nu.zicmp <- function(object, ...)
 {
-	exp(object$S %*% object$gamma)
+	exp(object$S %*% object$gamma + object$offset.nu)
 }
 
 sdev.zicmp <- function(object, ...)
@@ -166,12 +166,12 @@ equitest.zicmp <- function(object, ...)
 	beta0.hat <- fit0.out$theta.hat$beta
 	zeta0.hat <- fit0.out$theta.hat$zeta
 
-	lambda.hat <- exp(X %*% beta.hat)
-	nu.hat <- exp(S %*% gamma.hat)
-	p.hat <- plogis(W %*% zeta.hat)
+	lambda.hat <- exp(X %*% beta.hat + object$offset.lambda)
+	nu.hat <- exp(S %*% gamma.hat + object$offset.nu)
+	p.hat <- plogis(W %*% zeta.hat + object$offset.p)
 
-	lambda0.hat <- exp(X %*% beta0.hat)
-	p0.hat <- plogis(W %*% zeta0.hat)
+	lambda0.hat <- exp(X %*% beta0.hat + object$offset.lambda)
+	p0.hat <- plogis(W %*% zeta0.hat + object$offset.p)
 
 	logff <- dzicmp(y, lambda.hat, nu.hat, p.hat, log = TRUE)
 	logff0 <- dzip(y, lambda0.hat, p0.hat, log = TRUE)
@@ -204,9 +204,9 @@ deviance.zicmp <- function(object, ...)
 
 	for(i in 1:n) {
 		loglik <- function(par){
-			lambda <- exp(X[i,] %*% par[1:d1])
-			nu <- exp(S[i,] %*% par[1:d2 + d1])
-			p <- plogis(W[i,] %*% par[1:d3 + d1 + d2])
+			lambda <- exp(X[i,] %*% par[1:d1] + object$offset.lambda)
+			nu <- exp(S[i,] %*% par[1:d2 + d1] + object$offset.nu)
+			p <- plogis(W[i,] %*% par[1:d3 + d1 + d2] + object$offset.p)
 			dzicmp(y[i], lambda, nu, p, log = TRUE)
 		}
 
@@ -226,9 +226,9 @@ deviance.zicmp <- function(object, ...)
 
 residuals.zicmp <- function(object, type = c("raw", "quantile"), ...)
 {
-	lambda.hat <- exp(object$X %*% object$beta)
-	nu.hat <- exp(object$S %*% object$gamma)
-	p.hat <- plogis(object$W %*% object$zeta)
+	lambda.hat <- exp(object$X %*% object$beta + object$offset.lambda)
+	nu.hat <- exp(object$S %*% object$gamma + object$offset.nu)
+	p.hat <- plogis(object$W %*% object$zeta + object$offset.p)
 	y.hat <- predict.zicmp(object)
 
 	type <- match.arg(type)
@@ -246,23 +246,30 @@ residuals.zicmp <- function(object, type = c("raw", "quantile"), ...)
 predict.zicmp <- function(object, newdata = NULL, ...)
 {
 	if (!is.null(newdata)) {
-		# If any of the original models had an intercept added via model.matrix, they
-		# will have an "(Intercept)" column. Let's add an "(Intercept)" to newdata
-		# in case the user didn't make one.
-		newdata$'(Intercept)' <- 1
+		mflambda <- model.frame(object$formula.lambda, newdata)
+		mfnu <- model.frame(object$formula.lambda, newdata)
+		mfp <- model.frame(object$formula.p, newdata)
 
-		X <- as.matrix(newdata[,colnames(object$X)])
-		S <- as.matrix(newdata[,colnames(object$S)])
-		W <- as.matrix(newdata[,colnames(object$W)])
+		X <- model.matrix(formula.lambda, mflambda)
+		S <- model.matrix(formula.nu, mfnu)
+		W <- model.matrix(formula.p, mfp)
+		
+		offset.lambda <- model.offset(mflambda)
+		offset.nu <- model.offset(mfnu)
+		offset.p <- model.offset(mfp)
+
+		if (is.null(offset.lambda)) { offset.lambda <- rep(0, nrow(newdata))}
+		if (is.null(offset.nu)) { offset.nu <- rep(0, nrow(newdata))}
+		if (is.null(offset.nu)) { offset.p <- rep(0, nrow(newdata))}
 	} else {
 		X <- object$X
 		S <- object$S
 		W <- object$W
 	}
 
-	lambda.hat <- exp(X %*% object$beta)
-	nu.hat <- exp(S %*% object$gamma)
-	p.hat <- plogis(W %*% object$zeta)
+	lambda.hat <- exp(X %*% object$beta + object$offset.lambda)
+	nu.hat <- exp(S %*% object$gamma + object$offset.nu)
+	p.hat <- plogis(W %*% object$zeta + object$offset.p)
 	y.hat <- zicmp_expected_value(lambda.hat, nu.hat, p.hat)
 	return(y.hat)
 }
@@ -273,9 +280,9 @@ parametric_bootstrap.zicmp <- function(object, reps = 1000, report.period = reps
 	qq <- length(object$beta) + length(object$gamma) + length(object$zeta)
 	theta.boot <- matrix(NA, reps, qq)
 
-	lambda.hat <- exp(object$X %*% object$beta)
-	nu.hat <- exp(object$S %*% object$gamma)
-	p.hat <- plogis(object$W %*% object$zeta)
+	lambda.hat <- exp(object$X %*% object$beta + object$offset.lambda)
+	nu.hat <- exp(object$S %*% object$gamma + object$offset.nu)
+	p.hat <- plogis(object$W %*% object$zeta + object$offset.p)
 
 	for (r in 1:reps) {
 		if (r %% report.period == 0) {
