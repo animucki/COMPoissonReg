@@ -246,6 +246,7 @@ residuals.zicmp <- function(object, type = c("raw", "quantile"), ...)
 predict.zicmp <- function(object, newdata = NULL, ...)
 {
 	if (!is.null(newdata)) {
+		#expect newdata to be a dataframe or matrix with named columns
 		mflambda <- model.frame(object$formula.lambda, newdata)
 		mfnu <- model.frame(object$formula.lambda, newdata)
 		mfp <- model.frame(object$formula.p, newdata)
