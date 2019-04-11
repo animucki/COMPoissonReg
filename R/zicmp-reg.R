@@ -250,9 +250,9 @@ predict.zicmp <- function(object, newdata = NULL, ...)
 		mfnu <- model.frame(object$formula.lambda, newdata)
 		mfp <- model.frame(object$formula.p, newdata)
 
-		X <- model.matrix(formula.lambda, mflambda)
-		S <- model.matrix(formula.nu, mfnu)
-		W <- model.matrix(formula.p, mfp)
+		X <- model.matrix(object$formula.lambda, mflambda)
+		S <- model.matrix(object$formula.nu, mfnu)
+		W <- model.matrix(object$formula.p, mfp)
 		
 		offset.lambda <- model.offset(mflambda)
 		offset.nu <- model.offset(mfnu)
@@ -260,16 +260,16 @@ predict.zicmp <- function(object, newdata = NULL, ...)
 
 		if (is.null(offset.lambda)) { offset.lambda <- rep(0, nrow(newdata))}
 		if (is.null(offset.nu)) { offset.nu <- rep(0, nrow(newdata))}
-		if (is.null(offset.nu)) { offset.p <- rep(0, nrow(newdata))}
+		if (is.null(offset.p)) { offset.p <- rep(0, nrow(newdata))}
 	} else {
 		X <- object$X
 		S <- object$S
 		W <- object$W
 	}
 
-	lambda.hat <- exp(X %*% object$beta + object$offset.lambda)
-	nu.hat <- exp(S %*% object$gamma + object$offset.nu)
-	p.hat <- plogis(W %*% object$zeta + object$offset.p)
+	lambda.hat <- exp(X %*% object$beta + offset.lambda)
+	nu.hat <- exp(S %*% object$gamma + offset.nu)
+	p.hat <- plogis(W %*% object$zeta + offset.p)
 	y.hat <- zicmp_expected_value(lambda.hat, nu.hat, p.hat)
 	return(y.hat)
 }

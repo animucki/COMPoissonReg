@@ -241,8 +241,8 @@ predict.cmp <- function(object, newdata = NULL, ...)
 		mflambda <- model.frame(object$formula.lambda, newdata)
 		mfnu <- model.frame(object$formula.lambda, newdata)
 
-		X <- model.matrix(formula.lambda, mflambda)
-		S <- model.matrix(formula.nu, mfnu)
+		X <- model.matrix(object$formula.lambda, mflambda)
+		S <- model.matrix(object$formula.nu, mfnu)
 
 		offset.lambda <- model.offset(mflambda)
 		offset.nu <- model.offset(mfnu)
@@ -256,8 +256,8 @@ predict.cmp <- function(object, newdata = NULL, ...)
 		offset.nu <- object$offset.nu
 	}
 
-	lambda <- exp(X %*% object$beta + object$offset.lambda)
-	nu <- exp(S %*% object$gamma + object$offset.nu)
+	lambda <- exp(X %*% object$beta + offset.lambda)
+	nu <- exp(S %*% object$gamma + offset.nu)
 	out <- constantCMPfitsandresids(lambda, nu)
 	y.hat <- out$fit
 	return(y.hat)
